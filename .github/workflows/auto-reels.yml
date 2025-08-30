@@ -3,7 +3,7 @@ name: Auto Reels WP→FB+IG
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/30 * * * *"  # a cada 30 min (UTC)
+    - cron: "*/15 * * * *"  # a cada 30 min (UTC)
 
 concurrency:
   group: auto-reels
