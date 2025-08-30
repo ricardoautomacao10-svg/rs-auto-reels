@@ -1,75 +1,48 @@
 name: Auto Reels WP→FB+IG
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:        # permite rodar manualmente
   schedule:
-    - cron: "*/15 * * * *"  # a cada 30 min (UTC)
+    - cron: "*/15 * * * *"  # roda a cada 10 minutos (24/7)
+
+permissions:
+  contents: read
 
 concurrency:
-  group: auto-reels
-  cancel-in-progress: false
+  group: auto-reels-wp      # evita sobreposição
+  cancel-in-progress: true
 
 jobs:
-  run:
+  run-once:
     runs-on: ubuntu-latest
-    timeout-minutes: 40          # limite geral do job
+    timeout-minutes: 12     # se travar, mata em 12 min (economiza minutos)
+    env:
+      # --- seus segredos (já cadastrados em Settings > Secrets and variables > Actions) ---
+      WP_URL: ${{ secrets.WP_URL }}
+      USER_ACCESS_TOKEN: ${{ secrets.USER_ACCESS_TOKEN }}
+      FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+      INSTAGRAM_ID: ${{ secrets.INSTAGRAM_ID }}
+
+      # ajustes rápidos (se quiser sobrepor os defaults do script)
+      VIDEO_SECONDS: "10"
+      WP_POSTS: "5"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
 
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install system deps (ffmpeg)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-
-      - name: Install Python deps
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Create .env from Secrets
+      - name: Run bot
         run: |
-          cat > .env << 'EOF'
-          USER_ACCESS_TOKEN=${{ secrets.USER_ACCESS_TOKEN }}
-          FACEBOOK_PAGE_ID=${{ secrets.FACEBOOK_PAGE_ID }}
-          INSTAGRAM_ID=${{ secrets.INSTAGRAM_ID }}
-          API_VERSION=v23.0
-          EOF
-
-      - name: Quick connectivity check (WP API)
-        run: |
-          set -eux
-          curl -sS -I "https://jornalvozdolitoral.com/wp-json/wp/v2/posts?per_page=1" | cat
-
-      # Roda o script com timeout de 20 minutos e saída sem buffer (-u)
-      # Se travar (ex.: polling do IG), o step termina e o job segue.
-      - name: Run auto_reels once (with timeout)
-        env:
-          PYTHONUNBUFFERED: "1"
-        run: |
-          set -eux
-          mkdir -p out
-          # timeouts defensivos: 20min
-          timeout 20m python -u auto_reels_wp_publish.py
-
-      - name: Upload out/ as artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: out-${{ github.run_id }}
-          path: out/
-          if-no-files-found: warn
+          echo "Starting..."
+          python auto_reels_wp_publish.py
