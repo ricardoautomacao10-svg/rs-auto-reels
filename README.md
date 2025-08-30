@@ -1,0 +1,1 @@
+[![Auto Reels WP→FB+IG](https://github.com/ricardoautomacao10-svg/rs-auto-reels/actions/workflows/auto-reels.yml/badge.svg)](https://github.com/ricardoautomacao10-svg/rs-auto-reels/actions/workflows/auto-reels.yml)
