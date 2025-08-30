@@ -1,13 +1,10 @@
 name: Auto Reels WP→FB+IG
 
 on:
-  # dispara manualmente quando quiser
   workflow_dispatch:
-  # roda AUTOMÁTICO a cada 30 minutos (UTC)
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/30 * * * *"  # a cada 30 min (UTC)
 
-# evita duas execuções simultâneas
 concurrency:
   group: auto-reels
   cancel-in-progress: false
@@ -15,13 +12,13 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 50  # margem segura < 60min por execução
+    timeout-minutes: 40          # limite geral do job
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -44,7 +41,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Create .env from GitHub Secrets
+      - name: Create .env from Secrets
         run: |
           cat > .env << 'EOF'
           USER_ACCESS_TOKEN=${{ secrets.USER_ACCESS_TOKEN }}
@@ -53,17 +50,26 @@ jobs:
           API_VERSION=v23.0
           EOF
 
-      - name: Run once (buscar posts → gerar arte/vídeo → publicar)
+      - name: Quick connectivity check (WP API)
+        run: |
+          set -eux
+          curl -sS -I "https://jornalvozdolitoral.com/wp-json/wp/v2/posts?per_page=1" | cat
+
+      # Roda o script com timeout de 20 minutos e saída sem buffer (-u)
+      # Se travar (ex.: polling do IG), o step termina e o job segue.
+      - name: Run auto_reels once (with timeout)
         env:
           PYTHONUNBUFFERED: "1"
         run: |
-          python auto_reels_wp_publish.py
+          set -eux
+          mkdir -p out
+          # timeouts defensivos: 20min
+          timeout 20m python -u auto_reels_wp_publish.py
 
-      # (Opcional) guarda os últimos arquivos gerados para você baixar pelos Logs/Artifacts
-      - name: Upload out/
+      - name: Upload out/ as artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: out-${{ github.run_id }}
           path: out/
-          if-no-files-found: ignore
+          if-no-files-found: warn
